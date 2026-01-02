@@ -1,0 +1,13 @@
+# venv
+.venv/
+
+# data
+data/
+state.json
+
+# python
+___pycache__/
+*.pyc
+
+# secrets
+kaggle.json
