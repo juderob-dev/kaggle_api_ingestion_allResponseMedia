@@ -11,3 +11,11 @@ ___pycache__/
 
 # secrets
 kaggle.json
+
+# data outputs
+data/raw/
+data/processed/
+
+# parquet/large outputs (extra safety)
+*.parquet
+*.zip
