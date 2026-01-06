@@ -2,16 +2,13 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
-ROOT = Path(__file__).resolve().parents[1]
-INP = ROOT / "data" / "processed" / "gb_videos.parquet"
-OUTDIR = ROOT / "output"
-OUTDIR.mkdir(parents=True, exist_ok=True)
 
 
-def main():
-    df = pd.read_parquet(INP)
+def plot_top_categories_views(parquet_path: Path, out_dir: Path) -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    df = pd.read_parquet(parquet_path)
 
-    # group and sort
+   
     top = (
         df.dropna(subset=["category_name", "views"])
           .groupby("category_name", as_index=False)["views"].sum()
@@ -26,10 +23,11 @@ def main():
     plt.title("Top 10 YouTube Trending Categories (GB) by Total Views")
     plt.tight_layout()
 
-    outpath = OUTDIR / "top_categories_views.png"
+    outpath = out_dir / "top_categories_views.png"
+    
     plt.savefig(outpath, dpi=200)
     print("✅ Saved:", outpath)
+    return outpath
 
 
-if __name__ == "__main__":
-    main()
+

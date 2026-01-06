@@ -4,13 +4,6 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-DATASET = "datasnaek/youtube-new"
-NEEDED = ["GBvideos.csv", "GB_category_id.json"]
-
-ROOT = Path(__file__).resolve().parents[1]
-RAW = ROOT / "data" / "raw"
-STATE = ROOT / "state.json"
-
 
 def sh(cmd: list[str]) -> str:
     p = subprocess.run(cmd, text=True, capture_output=True)
@@ -21,23 +14,27 @@ def sh(cmd: list[str]) -> str:
             f"STDERR:\n{p.stderr}\n"
         )
     return p.stdout.strip()
-def load_version() -> int:
-    if not STATE.exists():
+
+
+def load_version(state_file: Path) -> int:
+    if not state_file.exists():
         return -1
     try:
-        return int(json.loads(STATE.read_text()).get("versionNumber", -1))
+        return int(json.loads(state_file.read_text()).get("versionNumber", -1))
     except Exception:
         return -1
 
 
-def save_version(v: int) -> None:
-    STATE.write_text(json.dumps({"dataset": DATASET, "versionNumber": v}, indent=2))
+def save_version(state_file: Path, dataset: str, v: int) -> None:
+    state_file.write_text(json.dumps({"dataset": dataset, "versionNumber": v}, indent=2))
 
 
-def main():
-    RAW.mkdir(parents=True, exist_ok=True)
-    out = sh(["kaggle", "datasets", "files", "-d", DATASET])
+def fetch_if_newer(dataset: str, needed: list[str], raw_dir: Path, state_file: Path) -> bool:
+   
+    raw_dir.mkdir(parents=True, exist_ok=True)
 
+  
+    out = sh(["kaggle", "datasets", "files", "-d", dataset])
     lines = out.splitlines()
 
     sizes = []
@@ -53,40 +50,45 @@ def main():
                 sizes.append(int(float(size[:-2]) * 1_000_000_000))
 
     remote_v = sum(sizes)
-    local_v = load_version()
+    local_v = load_version(state_file)
 
     if remote_v <= local_v:
         print(f"✅ Up to date (local={local_v}, remote={remote_v})")
-        return
-  
+        return False
 
     print(f"⬇️ Downloading (local={local_v}, remote={remote_v})")
 
-    
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
 
-        # 3. download zip
-        sh(["kaggle", "datasets", "download", "-d", DATASET, "-p", str(td)])
-
+        sh(["kaggle", "datasets", "download", "-d", dataset, "-p", str(td)])
         zip_path = next(td.glob("*.zip"))
 
-        # 4. extract only what we need
         with zipfile.ZipFile(zip_path) as z:
             names = z.namelist()
-            for want in NEEDED:
+            for want in needed:
                 match = next(
                     (n for n in names if n.endswith("/" + want) or n.endswith(want)),
                     None
                 )
                 if not match:
                     raise SystemExit(f"Missing in zip: {want}")
-                (RAW / want).write_bytes(z.read(match))
+                (raw_dir / want).write_bytes(z.read(match))
 
-    # 5. save new state
-    save_version(remote_v)
-    print("✅ Done. Saved:", ", ".join(NEEDED))
+    save_version(state_file, dataset, remote_v)
+    print("✅ Done. Saved:", ", ".join(needed))
+    return True
 
 
 if __name__ == "__main__":
-    main()
+    ROOT = Path(__file__).resolve().parents[1]
+    DATASET = "datasnaek/youtube-new"
+    NEEDED = ["GBvideos.csv", "GB_category_id.json"]
+
+    fetch_if_newer(
+        dataset=DATASET,
+        needed=NEEDED,
+        raw_dir=ROOT / "data" / "raw",
+        state_file=ROOT / "state.json",
+    )
+
