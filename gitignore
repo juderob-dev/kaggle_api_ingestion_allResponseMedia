@@ -1,17 +1,19 @@
 # venv
-.venv/
+.venv/*
 
 # python
-___pycache__/
+___pycache__/*
 *.pyc
 
 # secrets
 kaggle.json
 
 # data outputs
-data/raw/
-data/processed/
+data/raw/*
+data/processed/*
 
 # parquet/large outputs (extra safety)
 *.parquet
 *.zip
+
+output/*
